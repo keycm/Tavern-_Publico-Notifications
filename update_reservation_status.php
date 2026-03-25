@@ -116,16 +116,38 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         
                         $reservation_type = $reservation_data['reservation_type'] ?? 'Dine-in';
                         
+                        // --- NEW: Generate Google Calendar Link ---
+                        $gcal_title = urlencode("Reservation at Tavern Publico ($reservation_type)");
+                        
+                        // Calculate start and end times (Assuming a standard 2-hour reservation)
+                        $start_timestamp = strtotime($reservation_data['res_date'] . ' ' . $reservation_data['res_time']);
+                        $end_timestamp = $start_timestamp + (2 * 3600); // +2 hours
+                        
+                        // Format for Google Calendar (Ymd\THis - Local timezone format)
+                        $gcal_start = date('Ymd\THis', $start_timestamp);
+                        $gcal_end = date('Ymd\THis', $end_timestamp);
+                        
+                        $gcal_details = urlencode("Confirmed reservation for " . $customer_name . ".\nReservation Type: " . $reservation_type . "\n\nWe look forward to hosting you!");
+                        $gcal_location = urlencode("Tavern Publico"); // You can put your full address here if you prefer
+                        
+                        $gcal_url = "https://calendar.google.com/calendar/render?action=TEMPLATE&text={$gcal_title}&dates={$gcal_start}/{$gcal_end}&details={$gcal_details}&location={$gcal_location}";
+                        
+                        // Styled Button HTML
+                        $gcal_button = "<br><br><a href='{$gcal_url}' style='background-color: #4285F4; color: #ffffff; padding: 12px 20px; text-decoration: none; border-radius: 5px; display: inline-block; font-family: sans-serif; font-weight: bold;'>📅 Add to Google Calendar</a><br><br>";
+                        // --- END NEW ---
+
                         if ($reservation_type === 'Dine-in') {
                             // Standard Dine-in Email
                             $mail->Body    = "Dear " . $customer_name . ",<br><br>" .
-                                             "Your <strong>Dine-in</strong> reservation for <strong>" . $res_date_formatted . "</strong> at <strong>" . $res_time_formatted . "</strong> has been confirmed.<br><br>" .
+                                             "Your <strong>Dine-in</strong> reservation for <strong>" . $res_date_formatted . "</strong> at <strong>" . $res_time_formatted . "</strong> has been confirmed.<br>" .
+                                             $gcal_button . 
                                              "Please note: Your table will be held for a 30-minute grace period past your reservation time. If you are running late, please give us a call.<br><br>" .
                                              "We look forward to seeing you!<br>Tavern Publico";
                         } else {
                             // Formal Event / Special Occasion Email
                             $mail->Body    = "Dear " . $customer_name . ",<br><br>" .
-                                             "We are pleased to confirm your <strong>" . htmlspecialchars($reservation_type) . "</strong> reservation for <strong>" . $res_date_formatted . "</strong> at <strong>" . $res_time_formatted . "</strong>.<br><br>" .
+                                             "We are pleased to confirm your <strong>" . htmlspecialchars($reservation_type) . "</strong> reservation for <strong>" . $res_date_formatted . "</strong> at <strong>" . $res_time_formatted . "</strong>.<br>" .
+                                             $gcal_button . 
                                              "Our team is excited to help you celebrate. If you have any further requirements or need to coordinate details for your event, please do not hesitate to reply to this email or contact us directly.<br><br>" .
                                              "We look forward to welcoming you!<br>Tavern Publico";
                         }
