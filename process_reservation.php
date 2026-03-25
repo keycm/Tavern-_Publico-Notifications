@@ -111,8 +111,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         exit;
     }
     
-    // --- MODIFICATION: Simplified logic (no transaction needed) ---
-    
     // MODIFIED: Added 'special_requests' to INSERT statement, removed coupon
     $sql = "INSERT INTO reservations (user_id, res_date, res_time, num_guests, res_name, res_phone, res_email, status, source, reservation_type, valid_id_path, special_requests) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
@@ -121,7 +119,57 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         mysqli_stmt_bind_param($stmt, "ississssssss", $user_id, $resDate, $resTime, $numGuests, $resName, $resPhone, $resEmail, $status, $source, $reservationType, $valid_id_path, $special_requests);
 
         if (mysqli_stmt_execute($stmt)) {
-            // ... (Email notification code remains the same) ...
+            
+            // --- NEW: Send Admin Notification Email ---
+            $mail = new PHPMailer(true);
+
+            try {
+                // Server settings
+                $mail->isSMTP();
+                $mail->Host       = SMTP_HOST;
+                $mail->SMTPAuth   = true;
+                $mail->Username   = SMTP_USERNAME;
+                $mail->Password   = SMTP_PASSWORD;
+                $mail->SMTPSecure = SMTP_SECURE;
+                $mail->Port       = SMTP_PORT;
+
+                // Recipients
+                $mail->setFrom(SMTP_USERNAME, 'Tavern Publico System');
+                // Send the email to the main admin email
+                $mail->addAddress(SMTP_USERNAME, 'Admin'); 
+
+                // Content
+                $mail->isHTML(true);
+                $mail->Subject = 'New Reservation Received - ' . $resName;
+                
+                // Format the special requests nicely
+                $displayRequests = $special_requests ? $special_requests : "None";
+
+                $mail->Body    = "
+                    <h2>New Reservation Request</h2>
+                    <p>A new reservation has been made on the website. Here are the details:</p>
+                    <ul>
+                        <li><strong>Customer Name:</strong> {$resName}</li>
+                        <li><strong>Email:</strong> {$resEmail}</li>
+                        <li><strong>Phone:</strong> {$resPhone}</li>
+                        <li><strong>Date:</strong> {$resDate}</li>
+                        <li><strong>Time:</strong> {$resTime}</li>
+                        <li><strong>Guests:</strong> {$numGuests}</li>
+                        <li><strong>Type:</strong> {$reservationType}</li>
+                        <li><strong>Special Requests:</strong> {$displayRequests}</li>
+                    </ul>
+                    <br>
+                    <p>Please log in to the admin panel to confirm or manage this reservation.</p>
+                ";
+                $mail->AltBody = "New Reservation Details:\nName: {$resName}\nEmail: {$resEmail}\nPhone: {$resPhone}\nDate: {$resDate}\nTime: {$resTime}\nGuests: {$numGuests}\nType: {$reservationType}\nSpecial Requests: {$displayRequests}";
+
+                $mail->send();
+            } catch (Exception $e) {
+                // Log the error but don't stop the user from seeing the success message since the DB insert worked
+                error_log("Admin notification email could not be sent. Mailer Error: {$mail->ErrorInfo}");
+            }
+            // --- END NEW ---
+
             header('Location: reserve.php?status=success');
             exit;
         } else {
